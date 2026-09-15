@@ -14,7 +14,7 @@
     .card { background: #fff; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     .facility { font-weight: bold; }
     .stats { font-size: 0.85rem; color: #64748b; margin-top: 2px; }
-    .wait-time { font-weight: bold; font-size: 1.1rem; }
+    .wait-time { font-weight: bold; font-size: 1.1rem; color: #0284c7; }
     footer { text-align: center; font-size: 0.85rem; color: #64748b; margin-top: 30px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
   </style>
 </head>
@@ -31,49 +31,22 @@
   <footer>A Leslie James App</footer>
 
   <script>
-    function loadScriptData() {
-      const oldScript = document.getElementById("wrha-data-script");
-      if (oldScript) oldScript.remove();
+    const API_URL = "https://9975a0ed5ee4a9.lhr.life/api/waittimes";
 
-      const script = document.createElement("script");
-      script.id = "wrha-data-script";
-      script.src = "https://wrha.mb.ca/waittimes/waittimes.js?v=" + new Date().getTime();
-      
-      script.onload = () => {
-        if (typeof waitTimesData !== "undefined") {
-          processData(waitTimesData);
-        } else {
-          document.getElementById("status").textContent = "Unable to parse live payload.";
-        }
-      };
+    async function loadData() {
+      const statusDiv = document.getElementById("status");
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        
+        renderCategory("er-list", data["Emergency"]);
+        renderCategory("uc-list", data["Urgent Care"]);
 
-      script.onerror = () => {
-        document.getElementById("status").textContent = "Error connecting directly to WRHA feed.";
-      };
-
-      document.body.appendChild(script);
-    }
-
-    function processData(data) {
-      const erList = [];
-      const ucList = [];
-
-      data.forEach(item => {
-        const name = item.facility || item.name || "";
-        const target = name.toLowerCase().includes("urgent") ? ucList : erList;
-        target.push({
-          facility: name,
-          waiting: item.waiting || "0",
-          treating: item.treating || "0",
-          waitTime: item.waitTime || item.wait_time || "N/A"
-        });
-      });
-
-      renderCategory("er-list", erList);
-      renderCategory("uc-list", ucList);
-
-      const now = new Date();
-      document.getElementById("status").textContent = `Last updated: ${now.toLocaleTimeString([], {hour: "2-digit", minute:"2-digit"})}`;
+        const now = new Date();
+        statusDiv.textContent = `Last updated: ${now.toLocaleTimeString([], {hour: "2-digit", minute:"2-digit"})}`;
+      } catch (err) {
+        statusDiv.textContent = "Error loading wait times from local server.";
+      }
     }
 
     function renderCategory(elementId, items) {
@@ -84,6 +57,9 @@
         return;
       }
       items.forEach(item => {
+        // Skip header rows if present in data
+        if (item.facility.toLowerCase().includes("facility") || item.facility.toLowerCase().includes("department")) return;
+        
         container.innerHTML += `
           <div class="card">
             <div>
@@ -96,8 +72,8 @@
       });
     }
 
-    loadScriptData();
-    setInterval(loadScriptData, 15 * 60 * 1000);
+    loadData();
+    setInterval(loadData, 15 * 60 * 1000);
   </script>
 </body>
 </html>
