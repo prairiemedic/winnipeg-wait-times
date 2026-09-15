@@ -36,7 +36,7 @@
     async function loadData() {
       const statusDiv = document.getElementById("status");
       try {
-        const res = await fetch(API_URL);
+        const API_URL = "https://701b7a6c22f59f.lhr.life/api/waittimes";
         const data = await res.json();
         
         renderCategory("er-list", data["Emergency"]);
