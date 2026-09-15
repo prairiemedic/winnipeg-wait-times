@@ -20,7 +20,7 @@
 </head>
 <body>
   <h1>Winnipeg Wait Times</h1>
-  <div class="status" id="status">Loading...</div>
+  <div class="status" id="status">Loading live feed...</div>
   
   <div class="section-title">EMERGENCY DEPARTMENTS</div>
   <div id="er-list"></div>
@@ -31,44 +31,49 @@
   <footer>A Leslie James App</footer>
 
   <script>
-    const URLS = {
-      "Emergency": "https://api.allorigins.win/get?url=" + encodeURIComponent("https://wrha.mb.ca/wait-times/emergency/"),
-      "Urgent Care": "https://api.allorigins.win/get?url=" + encodeURIComponent("https://wrha.mb.ca/wait-times/urgent-care/")
-    };
+    function loadScriptData() {
+      const oldScript = document.getElementById("wrha-data-script");
+      if (oldScript) oldScript.remove();
 
-    async function loadData() {
-      const statusDiv = document.getElementById("status");
-      try {
-        const results = { "Emergency": [], "Urgent Care": [] };
-        
-        for (const [category, url] of Object.entries(URLS)) {
-          const res = await fetch(url);
-          const data = await res.json();
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(data.contents, "text/html");
-          
-          const rows = doc.querySelectorAll("table tr");
-          rows.forEach(tr => {
-            const cols = Array.from(tr.querySelectorAll("td, th")).map(cell => cell.textContent.trim()).filter(Boolean);
-            if (cols.length >= 4 && !cols[0].toLowerCase().includes("facility") && !cols[0].toLowerCase().includes("hospital")) {
-              results[category].push({
-                facility: cols[0],
-                waiting: cols[1],
-                treating: cols[2],
-                waitTime: cols[3]
-              });
-            }
-          });
+      const script = document.createElement("script");
+      script.id = "wrha-data-script";
+      script.src = "https://wrha.mb.ca/waittimes/waittimes.js?v=" + new Date().getTime();
+      
+      script.onload = () => {
+        if (typeof waitTimesData !== "undefined") {
+          processData(waitTimesData);
+        } else {
+          document.getElementById("status").textContent = "Unable to parse live payload.";
         }
+      };
 
-        renderCategory("er-list", results["Emergency"]);
-        renderCategory("uc-list", results["Urgent Care"]);
+      script.onerror = () => {
+        document.getElementById("status").textContent = "Error connecting directly to WRHA feed.";
+      };
 
-        const now = new Date();
-        statusDiv.textContent = `Last updated: ${now.toLocaleTimeString([], {hour: "2-digit", minute:"2-digit"})}`;
-      } catch (err) {
-        statusDiv.textContent = "Error loading wait times directly.";
-      }
+      document.body.appendChild(script);
+    }
+
+    function processData(data) {
+      const erList = [];
+      const ucList = [];
+
+      data.forEach(item => {
+        const name = item.facility || item.name || "";
+        const target = name.toLowerCase().includes("urgent") ? ucList : erList;
+        target.push({
+          facility: name,
+          waiting: item.waiting || "0",
+          treating: item.treating || "0",
+          waitTime: item.waitTime || item.wait_time || "N/A"
+        });
+      });
+
+      renderCategory("er-list", erList);
+      renderCategory("uc-list", ucList);
+
+      const now = new Date();
+      document.getElementById("status").textContent = `Last updated: ${now.toLocaleTimeString([], {hour: "2-digit", minute:"2-digit"})}`;
     }
 
     function renderCategory(elementId, items) {
@@ -91,8 +96,8 @@
       });
     }
 
-    loadData();
-    setInterval(loadData, 15 * 60 * 1000);
+    loadScriptData();
+    setInterval(loadScriptData, 15 * 60 * 1000);
   </script>
 </body>
 </html>
