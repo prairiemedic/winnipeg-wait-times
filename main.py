@@ -19,8 +19,13 @@ URLS = {
     "Urgent Care": "https://wrha.mb.ca/wait-times/urgent-care/"
 }
 
+# Mimic a complete desktop browser request to bypass bot blocks
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1"
 }
 
 @app.get("/")
@@ -32,30 +37,31 @@ def root():
 def get_wait_times():
     results = {"Emergency": [], "Urgent Care": []}
 
+    session = requests.Session()
+    session.headers.update(HEADERS)
+
     for category, url in URLS.items():
         try:
-            resp = requests.get(url, headers=HEADERS, timeout=10)
+            resp = session.get(url, timeout=12)
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, 'html.parser')
 
-                # Target every row in all tables
+                # Extract rows from any table element present
                 for tr in soup.find_all('tr'):
-                    # Gather text from cells, filtering empty strings
+                    # Collect non-empty text from cells
                     cells = [td.get_text(strip=True) for td in tr.find_all(['td', 'th']) if td.get_text(strip=True)]
 
-                    # A valid data row has at least Facility, Waiting, Treating, and Wait Time
                     if len(cells) >= 4:
                         facility = cells[0]
 
-                        # Skip header rows
-                        if any(h in facility.lower() for h in ["facility", "hospital", "department", "urgent care", "location"]):
+                        # Filter out table header rows
+                        if any(h in facility.lower() for h in ["facility", "hospital", "location", "department", "urgent care"]):
                             continue
 
                         waiting = cells[1]
                         treating = cells[2]
                         wait_str = cells[3]
 
-                        # Extract numeric hours for visual styling logic in frontend
                         match = re.search(r"([0-9]+(?:\.[0-9]+)?)", wait_str)
                         hours = float(match.group(1)) if match else None
 
