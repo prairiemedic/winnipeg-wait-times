@@ -20,10 +20,15 @@ URLS = {
 }
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
+@app.get("/")
+def root():
+    return {"status": "WRHA Wait Times API is running"}
+
 @app.get("/api/waittimes")
+@app.get("/api/waittimes/")
 def get_wait_times():
     results = {"Emergency": [], "Urgent Care": []}
 
@@ -32,11 +37,13 @@ def get_wait_times():
             resp = requests.get(url, headers=HEADERS, timeout=10)
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, 'html.parser')
-                table = soup.find('table')
-                if table:
-                    for tr in table.find_all('tr')[1:]:
-                        cols = [td.get_text(strip=True) for td in tr.find_all('td')]
-                        if len(cols) >= 4:
+                tables = soup.find_all('table')
+                for table in tables:
+                    for tr in table.find_all('tr'):
+                        cols = [td.get_text(strip=True) for td in tr.find_all(['td', 'th'])]
+
+                        # Verify row has valid columns and skip table header rows
+                        if len(cols) >= 4 and not any(h in cols[0].lower() for h in ["facility", "location", "hospital"]):
                             match = re.search(r"([0-9]+(?:\.[0-9]+)?)", cols[3])
                             hours = float(match.group(1)) if match else None
 
