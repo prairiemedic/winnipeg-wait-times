@@ -37,23 +37,35 @@ def get_wait_times():
             resp = requests.get(url, headers=HEADERS, timeout=10)
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, 'html.parser')
-                tables = soup.find_all('table')
-                for table in tables:
-                    for tr in table.find_all('tr'):
-                        cols = [td.get_text(strip=True) for td in tr.find_all(['td', 'th'])]
 
-                        # Verify row has valid columns and skip table header rows
-                        if len(cols) >= 4 and not any(h in cols[0].lower() for h in ["facility", "location", "hospital"]):
-                            match = re.search(r"([0-9]+(?:\.[0-9]+)?)", cols[3])
-                            hours = float(match.group(1)) if match else None
+                # Target every row in all tables
+                for tr in soup.find_all('tr'):
+                    # Gather text from cells, filtering empty strings
+                    cells = [td.get_text(strip=True) for td in tr.find_all(['td', 'th']) if td.get_text(strip=True)]
 
-                            results[category].append({
-                                "facility": cols[0],
-                                "waiting": cols[1],
-                                "treating": cols[2],
-                                "waitTime": cols[3],
-                                "hours": hours
-                            })
+                    # A valid data row has at least Facility, Waiting, Treating, and Wait Time
+                    if len(cells) >= 4:
+                        facility = cells[0]
+
+                        # Skip header rows
+                        if any(h in facility.lower() for h in ["facility", "hospital", "department", "urgent care", "location"]):
+                            continue
+
+                        waiting = cells[1]
+                        treating = cells[2]
+                        wait_str = cells[3]
+
+                        # Extract numeric hours for visual styling logic in frontend
+                        match = re.search(r"([0-9]+(?:\.[0-9]+)?)", wait_str)
+                        hours = float(match.group(1)) if match else None
+
+                        results[category].append({
+                            "facility": facility,
+                            "waiting": waiting,
+                            "treating": treating,
+                            "waitTime": wait_str,
+                            "hours": hours
+                        })
         except Exception as e:
             print(f"Error fetching {category}: {e}")
 
