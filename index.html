@@ -31,12 +31,12 @@
   <footer>A Leslie James App</footer>
 
   <script>
-    const API_URL = "https://9975a0ed5ee4a9.lhr.life/api/waittimes";
+    const API_URL = "https://701b7a6c22f59f.lhr.life/api/waittimes";
 
     async function loadData() {
       const statusDiv = document.getElementById("status");
       try {
-        const API_URL = "https://701b7a6c22f59f.lhr.life/api/waittimes";
+        const res = await fetch(API_URL);
         const data = await res.json();
         
         renderCategory("er-list", data["Emergency"]);
@@ -57,7 +57,6 @@
         return;
       }
       items.forEach(item => {
-        // Skip header rows if present in data
         if (item.facility.toLowerCase().includes("facility") || item.facility.toLowerCase().includes("department")) return;
         
         container.innerHTML += `

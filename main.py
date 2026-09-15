@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import requests
+from bs4 import BeautifulSoup
 
 app = FastAPI()
 
@@ -12,41 +13,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Direct WRHA REST API endpoints
-ENDPOINTS = {
-    "Emergency": "https://wrha.mb.ca/wp-json/wrha/v1/wait-times/emergency",
-    "Urgent Care": "https://wrha.mb.ca/wp-json/wrha/v1/wait-times/urgent-care"
-}
-
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "Accept": "application/json"
-}
-
-@app.get("/")
-def root():
-    return {"status": "WRHA Wait Times API is running"}
-
 @app.get("/api/waittimes")
-def get_wait_times():
+def get_waittimes():
     results = {"Emergency": [], "Urgent Care": []}
-    session = requests.Session()
-    session.headers.update(HEADERS)
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    urls = {
+        "Emergency": "https://wrha.mb.ca/wait-times/emergency/",
+        "Urgent Care": "https://wrha.mb.ca/wait-times/urgent-care/"
+    }
 
-    for category, url in ENDPOINTS.items():
+    for category, url in urls.items():
         try:
-            resp = session.get(url, timeout=10)
-            if resp.status_code == 200:
-                data = resp.json()
-                for item in data:
+            resp = requests.get(url, headers=headers, timeout=10)
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            for tr in soup.find_all('tr'):
+                cells = [td.get_text(strip=True) for td in tr.find_all(['td', 'th']) if td.get_text(strip=True)]
+                if len(cells) >= 4 and not any(h in cells[0].lower() for h in ["facility", "hospital"]):
                     results[category].append({
-                        "facility": item.get("name", item.get("facility", "")),
-                        "waiting": str(item.get("waiting", 0)),
-                        "treating": str(item.get("treating", 0)),
-                        "waitTime": item.get("wait_time", item.get("waitTime", "N/A")),
-                        "hours": item.get("hours", None)
+                        "facility": cells[0],
+                        "waiting": cells[1],
+                        "treating": cells[2],
+                        "waitTime": cells[3]
                     })
         except Exception as e:
-            print(f"Error fetching {category}: {e}")
+            print(f"Error: {e}")
 
     return results
