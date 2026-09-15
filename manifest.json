@@ -1,0 +1,8 @@
+{
+  "short_name": "Wait Times",
+  "name": "Winnipeg ER & Urgent Care Wait Times",
+  "start_url": ".",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "display": "standalone"
+}
