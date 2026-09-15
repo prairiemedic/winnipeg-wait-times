@@ -13,29 +13,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+URLS = {
+    "Emergency": "https://wrha.mb.ca/wait-times/emergency/",
+    "Urgent Care": "https://wrha.mb.ca/wait-times/urgent-care/"
+}
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
+
 @app.get("/api/waittimes")
 def get_waittimes():
-    results = {"Emergency": [], "Urgent Care": []}
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-    urls = {
-        "Emergency": "https://wrha.mb.ca/wait-times/emergency/",
-        "Urgent Care": "https://wrha.mb.ca/wait-times/urgent-care/"
-    }
+    scraped_results = {"Emergency": [], "Urgent Care": []}
 
-    for category, url in urls.items():
+    for category, url in URLS.items():
         try:
-            resp = requests.get(url, headers=headers, timeout=10)
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            for tr in soup.find_all('tr'):
-                cells = [td.get_text(strip=True) for td in tr.find_all(['td', 'th']) if td.get_text(strip=True)]
-                if len(cells) >= 4 and not any(h in cells[0].lower() for h in ["facility", "hospital"]):
-                    results[category].append({
-                        "facility": cells[0],
-                        "waiting": cells[1],
-                        "treating": cells[2],
-                        "waitTime": cells[3]
-                    })
-        except Exception as e:
-            print(f"Error: {e}")
+            resp = requests.get(url, headers=HEADERS, timeout=10)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, 'html.parser')
 
-    return results
+                # Scrape every table on the page (catches both main and sub-tables)
+                tables = soup.find_all('table')
+                for table in tables:
+                    # [1:] skips the header row [0]
+                    for tr in table.find_all('tr')[1:]:
+                        cols = [td.get_text(strip=True) for td in tr.find_all('td')]
+                        if len(cols) >= 4:
+                            fac_name = cols[0]
+                            # Ignore any lingering header text
+                            if "facility" in fac_name.lower() or "department" in fac_name.lower():
+                                continue
+
+                            scraped_results[category].append({
+                                "facility": cols[0],
+                                "waiting": cols[1],
+                                "treating": cols[2],
+                                "waitTime": cols[3]
+                            })
+        except Exception as e:
+            print(f"Error fetching {category}: {e}")
+
+    return scraped_results

@@ -21,34 +21,26 @@
 <body>
   <h1>Winnipeg Wait Times</h1>
   <div class="status" id="status">Loading live feed...</div>
-  
   <div class="section-title">EMERGENCY DEPARTMENTS</div>
   <div id="er-list"></div>
-
   <div class="section-title">URGENT CARE CENTRES</div>
   <div id="uc-list"></div>
-
   <footer>A Leslie James App</footer>
-
   <script>
-    const API_URL = "https://701b7a6c22f59f.lhr.life/api/waittimes";
-
+    const API_URL = "https://5f5981c1bcbd00.lhr.life/api/waittimes";
     async function loadData() {
       const statusDiv = document.getElementById("status");
       try {
         const res = await fetch(API_URL);
         const data = await res.json();
-        
         renderCategory("er-list", data["Emergency"]);
         renderCategory("uc-list", data["Urgent Care"]);
-
         const now = new Date();
         statusDiv.textContent = `Last updated: ${now.toLocaleTimeString([], {hour: "2-digit", minute:"2-digit"})}`;
       } catch (err) {
         statusDiv.textContent = "Error loading wait times from local server.";
       }
     }
-
     function renderCategory(elementId, items) {
       const container = document.getElementById(elementId);
       container.innerHTML = "";
@@ -57,8 +49,6 @@
         return;
       }
       items.forEach(item => {
-        if (item.facility.toLowerCase().includes("facility") || item.facility.toLowerCase().includes("department")) return;
-        
         container.innerHTML += `
           <div class="card">
             <div>
@@ -70,7 +60,6 @@
         `;
       });
     }
-
     loadData();
     setInterval(loadData, 15 * 60 * 1000);
   </script>
