@@ -31,21 +31,43 @@
   <footer>A Leslie James App</footer>
 
   <script>
-    const API_URL = "https://winnipeg-wait-times.onrender.com/api/waittimes";
+    const URLS = {
+      "Emergency": "https://api.allorigins.win/get?url=" + encodeURIComponent("https://wrha.mb.ca/wait-times/emergency/"),
+      "Urgent Care": "https://api.allorigins.win/get?url=" + encodeURIComponent("https://wrha.mb.ca/wait-times/urgent-care/")
+    };
 
     async function loadData() {
       const statusDiv = document.getElementById("status");
       try {
-        const res = await fetch(API_URL);
-        const data = await res.json();
+        const results = { "Emergency": [], "Urgent Care": [] };
         
-        renderCategory("er-list", data["Emergency"]);
-        renderCategory("uc-list", data["Urgent Care"]);
+        for (const [category, url] of Object.entries(URLS)) {
+          const res = await fetch(url);
+          const data = await res.json();
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(data.contents, "text/html");
+          
+          const rows = doc.querySelectorAll("table tr");
+          rows.forEach(tr => {
+            const cols = Array.from(tr.querySelectorAll("td, th")).map(cell => cell.textContent.trim()).filter(Boolean);
+            if (cols.length >= 4 && !cols[0].toLowerCase().includes("facility") && !cols[0].toLowerCase().includes("hospital")) {
+              results[category].push({
+                facility: cols[0],
+                waiting: cols[1],
+                treating: cols[2],
+                waitTime: cols[3]
+              });
+            }
+          });
+        }
+
+        renderCategory("er-list", results["Emergency"]);
+        renderCategory("uc-list", results["Urgent Care"]);
 
         const now = new Date();
         statusDiv.textContent = `Last updated: ${now.toLocaleTimeString([], {hour: "2-digit", minute:"2-digit"})}`;
       } catch (err) {
-        statusDiv.textContent = "Error loading wait times.";
+        statusDiv.textContent = "Error loading wait times directly.";
       }
     }
 
